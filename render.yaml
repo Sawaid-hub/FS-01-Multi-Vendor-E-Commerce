@@ -22,7 +22,7 @@ services:
       - key: SEARCH_PROVIDER
         value: elastic
       - key: ELASTICSEARCH_URL
-        sync: false
+        value: https://582e91730ff348d48ae53bcb483f2de0.us-central1.gcp.cloud.es.io:443
       - key: ELASTICSEARCH_API_KEY
         sync: false
       - key: ELASTICSEARCH_INDEX
@@ -57,6 +57,28 @@ services:
           type: web
           name: market-lane-client
           envVarKey: RENDER_EXTERNAL_URL
+      # Redis TLS: set to 0 only if your Redis provider uses self-signed certs (e.g. Upstash free).
+      # Leave blank to enforce certificate verification (strongly recommended).
+      - key: REDIS_TLS_REJECT_UNAUTHORIZED
+        value: ''
+      - key: STRIPE_TAX_ENABLED
+        value: 'false'
+      - key: COMMISSION_BPS
+        value: '1000'
+      - key: FX_API_URL
+        value: 'https://api.frankfurter.dev/v1/latest'
+      - key: ACCESS_TOKEN_TTL
+        value: '15m'
+      - key: REFRESH_TOKEN_DAYS
+        value: '30'
+      - key: COOKIE_SECURE
+        value: 'true'
+      # Pilot seed is opt-in; set ALLOW_PILOT_SEED=true and DEMO_PASSWORD in the dashboard
+      # to seed demo users on first startup. Disable immediately after.
+      - key: ALLOW_PILOT_SEED
+        value: 'false'
+      - key: DEMO_PASSWORD
+        sync: false
 
   - type: web
     name: market-lane-client
