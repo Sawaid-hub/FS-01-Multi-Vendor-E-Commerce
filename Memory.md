@@ -44,6 +44,7 @@
 - The project is a test-mode pilot, not production-ready. Live payments/transfers, production deployment, legal/tax approval, cross-border Connect eligibility, backups/restore, monitoring/alerts, security review, and browser end-to-end validation remain open gates.
 - Later integration verification superseded the earlier skipped result: `npm run test:integration` was run against temporary disposable replica-set MongoDB and Redis services; both integration tests passed (2 passed, 0 failed, 0 skipped). Those temporary services were shut down afterward. The test does not establish live Stripe account eligibility or deployed production readiness.
 - Separate Render deployment scaffolding is now present (`render.yaml`, `DEPLOYMENT.md`, and distinct Docker builds for the API and client). The Blueprint expects externally provisioned MongoDB replica set, TLS Redis, Elasticsearch, S3-compatible storage, email delivery, and Stripe test-mode settings. No deployment has been created or run.
+- GitHub is connected at `https://github.com/Sawaid-hub/FS-01-Multi-Vendor-E-Commerce` (private, `main`). The existing local project was initialized and pushed; local environment files, dependencies, uploads, and build output are ignored. No provider credentials were included.
 
 ## Progress log
 
@@ -66,6 +67,7 @@
 - 2026-10-21: User asked about Firebase Auth. Confirmed it is technically possible, with MongoDB remaining authoritative for marketplace roles/vendor state, but no provider migration has been made. Current API auth flow was inspected and explained; it remains the custom email/password implementation described above.
 - 2026-10-21: User requested persistent project memory and a project-wide rules document. Added `RULES.md` and updated this memory and `Agents.md` to require ongoing, dated progress/decision/test recording without storing secrets or personal credentials.
 - 2026-10-21: User asked to continue closing the production-readiness gaps and confirmed that `Memory.md` should be updated as work progresses. They selected Render. Added separate API/client Dockerfiles, Docker ignore files, Nginx SPA serving config, a Render Blueprint, and deployment instructions. Updated README deployment pointers. Deployment is prepared only; no Render service or external provider was configured or verified.
+- 2026-10-21: User asked to connect the project to GitHub. Confirmed the authenticated account is `Sawaid-hub`, created the private repository `Sawaid-hub/FS-01-Multi-Vendor-E-Commerce`, initialized the project `main` branch, and pushed the initial project snapshot. `.env` files, dependency folders, uploaded files, and build output were excluded by ignore rules. Updated this memory entry and pushed it as a follow-up commit.
 
 ## Memory maintenance
 
