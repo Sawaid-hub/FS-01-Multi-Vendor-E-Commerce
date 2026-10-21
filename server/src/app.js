@@ -7,6 +7,7 @@ const { authenticate } = require('./middleware/auth');
 const createMarketplaceRouter = require('./modules/marketplace/routes');
 const createAdminRouter = require('./modules/admin/routes');
 const createWebhookRouter = require('./modules/payments/webhook');
+const { redisHealthCheck } = require('./services/redis');
 
 function createApp(config, dependencies = {}) {
   const app = express();
@@ -36,10 +37,11 @@ function createApp(config, dependencies = {}) {
   app.get('/health', (_request, response) => response.json({ status: 'ok' }));
   app.get('/ready', async (_request, response) => {
     const mongoReady = mongoose.connection.readyState === 1;
-    const redisReady = dependencies.redis ? dependencies.redis.isReady : false;
+    let redisReady = true;
     let searchReady = true;
     let storageReady = true;
     let paymentsReady = true;
+    try { await redisHealthCheck(dependencies.redis); } catch { redisReady = false; }
     try { if (config.searchProvider === 'elastic') searchReady = await dependencies.search?.healthCheck?.() || false; } catch { searchReady = false; }
     try { if (config.s3Bucket) storageReady = await dependencies.storage?.healthCheck?.() || false; } catch { storageReady = false; }
     try { if (config.stripeSecretKey) { await dependencies.stripe?.balance.retrieve(); paymentsReady = Boolean(dependencies.stripe); } } catch { paymentsReady = false; }

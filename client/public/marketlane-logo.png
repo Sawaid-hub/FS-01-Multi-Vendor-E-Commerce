@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 196 44" role="img" aria-labelledby="title desc">
+  <title id="title">Market Lane</title>
+  <desc id="desc">A geometric M shaped like a neighborhood lane, followed by the Market Lane wordmark.</desc>
+  <rect x="1" y="1" width="42" height="42" rx="6" fill="#171717"/>
+  <path d="M10 31V13L22 25L34 13V31" fill="none" stroke="#FFFFFF" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M22 28V34" fill="none" stroke="#E9E4DC" stroke-width="1.8" stroke-linecap="round" stroke-dasharray="1 2.6"/>
+  <text x="55" y="30" fill="#171717" font-family="DM Sans, Arial, sans-serif" font-size="24" font-weight="600" letter-spacing="-0.65">
+    market<tspan font-weight="400">lane</tspan>
+  </text>
+</svg>

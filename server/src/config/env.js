@@ -7,8 +7,19 @@ function loadConfig(env = process.env) {
   const commissionBps = Number(env.COMMISSION_BPS || 1000);
   const emailDeliveryUrl = env.EMAIL_DELIVERY_URL || '';
   const emailApiKey = env.EMAIL_API_KEY || '';
+  const emailMode = env.EMAIL_MODE || 'console';
+  const gmailClientId = env.GMAIL_CLIENT_ID || '';
+  const gmailClientSecret = env.GMAIL_CLIENT_SECRET || '';
+  const gmailRefreshToken = env.GMAIL_REFRESH_TOKEN || '';
+  const gmailSender = env.GMAIL_SENDER || '';
   const searchProvider = env.SEARCH_PROVIDER || 'mongodb';
   const clientBaseUrl = env.CLIENT_BASE_URL || 'http://localhost:5173';
+  // TLS certificate verification for rediss:// connections.
+  // Set to '0' only when your provider (e.g. Upstash, Render Redis free tier)
+  // uses self-signed certificates. Never disable without a provider-specific reason.
+  const redisTlsRejectUnauthorized = env.REDIS_TLS_REJECT_UNAUTHORIZED !== '0';
+  const allowPilotSeed = env.ALLOW_PILOT_SEED === 'true';
+  const demoPassword = env.DEMO_PASSWORD || '';
   const accessTokenTtl = String(env.ACCESS_TOKEN_TTL || '15m').trim();
   const accessTokenMatch = /^(\d+)(s|m|h)$/.exec(accessTokenTtl);
   const accessTokenSeconds = accessTokenMatch ? Number(accessTokenMatch[1]) * ({ s: 1, m: 60, h: 3600 }[accessTokenMatch[2]]) : NaN;
@@ -29,9 +40,15 @@ function loadConfig(env = process.env) {
   }
   if (env.STRIPE_SECRET_KEY && !env.STRIPE_SECRET_KEY.startsWith('sk_test_')) throw new Error('STRIPE_SECRET_KEY must be a Stripe test-mode key starting with sk_test_.');
   if (nodeEnv === 'production' && !env.CORS_ORIGINS) throw new Error('CORS_ORIGINS must list the exact deployed client origins.');
-  if (nodeEnv === 'production' && (!emailDeliveryUrl || !emailApiKey)) throw new Error('EMAIL_DELIVERY_URL and EMAIL_API_KEY are required in production.');
+  const gmailConfigured = gmailClientId && gmailClientSecret && gmailRefreshToken && gmailSender;
+  if (nodeEnv === 'production' && emailMode !== 'gmail' && (!emailDeliveryUrl || !emailApiKey)) throw new Error('Configure Gmail (GMAIL_CLIENT_ID/SECRET/REFRESH_TOKEN/SENDER) or EMAIL_DELIVERY_URL + EMAIL_API_KEY for production email delivery.');
+  if (nodeEnv === 'production' && emailMode === 'gmail' && !gmailConfigured) throw new Error('GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, and GMAIL_SENDER are all required when EMAIL_MODE=gmail.');
   if (nodeEnv === 'production' && !env.REDIS_URL) throw new Error('REDIS_URL is required in production for shared carts and rate limiting.');
   if (nodeEnv === 'production' && !env.REDIS_URL.startsWith('rediss://')) throw new Error('REDIS_URL must use TLS (rediss://) in production.');
+  if (nodeEnv === 'production' && !redisTlsRejectUnauthorized) {
+    // Permitted only when the provider documents use of self-signed certs (e.g. Upstash free).
+    console.warn(JSON.stringify({ event: 'redis_tls_unverified', warning: 'REDIS_TLS_REJECT_UNAUTHORIZED=0; TLS certificate verification is disabled.' }));
+  }
   if (nodeEnv === 'production' && !env.S3_BUCKET) throw new Error('S3_BUCKET is required in production.');
   if (nodeEnv === 'production' && !env.FX_API_URL && !env.FX_RATES_JSON) throw new Error('Configure a verified FX_API_URL or FX_RATES_JSON before production startup.');
   if (nodeEnv === 'production') {
@@ -53,14 +70,18 @@ function loadConfig(env = process.env) {
     allowedOrigins: (env.CORS_ORIGINS || '').split(',').map((item) => item.trim()).filter(Boolean),
     stripeSecretKey: env.STRIPE_SECRET_KEY || '', stripeWebhookSecret: env.STRIPE_WEBHOOK_SECRET || '',
     stripeTaxEnabled: env.STRIPE_TAX_ENABLED === 'true', clientBaseUrl,
-    redisUrl: env.REDIS_URL || '', fxApiUrl: env.FX_API_URL || 'https://api.frankfurter.dev/v1/latest',
+    redisUrl: env.REDIS_URL || '',
+    redisTlsRejectUnauthorized,
+    fxApiUrl: env.FX_API_URL || 'https://api.frankfurter.dev/v1/latest',
     searchProvider, elasticsearchUrl: env.ELASTICSEARCH_URL || '', elasticsearchApiKey: env.ELASTICSEARCH_API_KEY || '', elasticsearchIndex: env.ELASTICSEARCH_INDEX || 'market-lane-products',
     fxRatesOverride: env.FX_RATES_JSON || '', uploadsDir: env.UPLOADS_DIR || 'uploads',
     s3Bucket: env.S3_BUCKET || '', s3Region: env.S3_REGION || 'us-east-1',
     s3Endpoint: env.S3_ENDPOINT || '', s3AccessKeyId: env.S3_ACCESS_KEY_ID || '', s3SecretAccessKey: env.S3_SECRET_ACCESS_KEY || '',
     cookieSecure: nodeEnv === 'production' || env.COOKIE_SECURE === 'true',
     cookieSameSite: nodeEnv === 'production' ? 'none' : 'lax',
-    emailDeliveryUrl, emailApiKey, emailMode: env.EMAIL_MODE || 'console'
+    emailDeliveryUrl, emailApiKey, emailMode,
+    gmailClientId, gmailClientSecret, gmailRefreshToken, gmailSender,
+    allowPilotSeed, demoPassword,
   };
 }
 

@@ -1,7 +1,12 @@
+*.md
+!/README.md
+!/Overview.md
+
 node_modules/
 dist/
 .env
 .env.*
 !.env.example
+server/atlas-credentials.env
 uploads/
 *.log
