@@ -1,0 +1,72 @@
+services:
+  - type: web
+    name: market-lane-api
+    runtime: docker
+    rootDir: server
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+      - key: JWT_SECRET
+        generateValue: true
+      - key: REFRESH_TOKEN_SECRET
+        generateValue: true
+      - key: MONGODB_URI
+        sync: false
+      - key: REDIS_URL
+        sync: false
+      - key: SEARCH_PROVIDER
+        value: elastic
+      - key: ELASTICSEARCH_URL
+        sync: false
+      - key: ELASTICSEARCH_API_KEY
+        sync: false
+      - key: ELASTICSEARCH_INDEX
+        value: market-lane-products
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_REGION
+        value: auto
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_ACCESS_KEY_ID
+        sync: false
+      - key: S3_SECRET_ACCESS_KEY
+        sync: false
+      - key: STRIPE_SECRET_KEY
+        sync: false
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false
+      - key: EMAIL_MODE
+        value: api
+      - key: EMAIL_DELIVERY_URL
+        sync: false
+      - key: EMAIL_API_KEY
+        sync: false
+      - key: CLIENT_BASE_URL
+        fromService:
+          type: web
+          name: market-lane-client
+          envVarKey: RENDER_EXTERNAL_URL
+      - key: CORS_ORIGINS
+        fromService:
+          type: web
+          name: market-lane-client
+          envVarKey: RENDER_EXTERNAL_URL
+
+  - type: web
+    name: market-lane-client
+    runtime: static
+    rootDir: client
+    buildCommand: npm ci && npm run build
+    staticPublishPath: ./dist
+    envVars:
+      - key: VITE_API_BASE_URL
+        fromService:
+          type: web
+          name: market-lane-api
+          envVarKey: RENDER_EXTERNAL_URL

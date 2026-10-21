@@ -1,0 +1,27 @@
+{
+  "name": "fs-01-marketplace-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Node.js API for the FS-01 multi-vendor marketplace capstone",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "admin:bootstrap": "node src/scripts/bootstrap-admin.js",
+    "seed:pilot": "node src/scripts/seed-pilot.js",
+    "test": "node --test",
+    "test:integration": "node --test test/marketplace.integration.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1154.0",
+    "@aws-sdk/s3-request-presigner": "^3.1154.0",
+    "dotenv": "^16.4.7",
+    "express": "^5.1.0",
+    "mongoose": "^8.19.1",
+    "redis": "^6.3.0",
+    "stripe": "^23.0.0"
+  }
+}
