@@ -101,7 +101,7 @@ function loadConfig(env = process.env) {
 
   return {
     nodeEnv, mongoUri, port, jwtSecret, refreshSecret, refreshTokenDays, accessTokenSeconds, commissionBps,
-    allowedOrigins: (env.CORS_ORIGINS || '').split(',').map((item) => item.trim()).filter(Boolean),
+    allowedOrigins: (env.CORS_ORIGINS || '').split(',').map((item) => item.trim().replace(/\/+$/, '')).filter(Boolean),
     stripeSecretKey: env.STRIPE_SECRET_KEY || '', stripeWebhookSecret: env.STRIPE_WEBHOOK_SECRET || '',
     stripeTaxEnabled: env.STRIPE_TAX_ENABLED === 'true', clientBaseUrl,
     redisUrl: env.REDIS_URL || '',

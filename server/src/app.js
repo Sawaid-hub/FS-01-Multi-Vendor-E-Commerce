@@ -19,8 +19,14 @@ function createApp(config, dependencies = {}) {
     next();
   });
   app.use((req, res, next) => {
-    const origin = req.get('origin');
-    if (origin && config.allowedOrigins.includes(origin)) {
+    const rawOrigin = req.get('origin');
+    const origin = rawOrigin ? rawOrigin.replace(/\/+$/, '') : null;
+    const isAllowed = origin && (
+      config.allowedOrigins.includes(origin) ||
+      config.allowedOrigins.includes('*') ||
+      (origin.startsWith('https://') && origin.endsWith('.onrender.com'))
+    );
+    if (isAllowed) {
       res.set('Access-Control-Allow-Origin', origin);
       res.set('Vary', 'Origin');
       res.set('Access-Control-Allow-Credentials', 'true');
