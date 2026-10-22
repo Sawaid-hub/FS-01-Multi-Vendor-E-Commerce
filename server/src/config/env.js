@@ -44,9 +44,19 @@ function loadConfig(env = process.env) {
   if (nodeEnv === 'production' && !env.STRIPE_SECRET_KEY) {
     console.warn(JSON.stringify({ event: 'stripe_not_configured', warning: 'STRIPE_SECRET_KEY is not set; test payments are disabled.' }));
   }
-  const gmailConfigured = gmailClientId && gmailClientSecret && gmailRefreshToken && gmailSender;
-  if (nodeEnv === 'production' && emailMode !== 'gmail' && (!emailDeliveryUrl || !emailApiKey)) throw new Error('Configure Gmail (GMAIL_CLIENT_ID/SECRET/REFRESH_TOKEN/SENDER) or EMAIL_DELIVERY_URL + EMAIL_API_KEY for production email delivery.');
-  if (nodeEnv === 'production' && emailMode === 'gmail' && !gmailConfigured) throw new Error('GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, and GMAIL_SENDER are all required when EMAIL_MODE=gmail.');
+  const gmailConfigured = Boolean(gmailClientId && gmailClientSecret && gmailRefreshToken && gmailSender);
+  if (nodeEnv === 'production') {
+    if (emailMode === 'gmail' && !gmailConfigured) {
+      const missing = [];
+      if (!gmailClientId) missing.push('GMAIL_CLIENT_ID');
+      if (!gmailClientSecret) missing.push('GMAIL_CLIENT_SECRET');
+      if (!gmailRefreshToken) missing.push('GMAIL_REFRESH_TOKEN');
+      if (!gmailSender) missing.push('GMAIL_SENDER');
+      console.warn(JSON.stringify({ event: 'gmail_incomplete', warning: `Gmail OAuth2 credentials incomplete: missing ${missing.join(', ')}. Email sending will fail closed with 503 until supplied.` }));
+    } else if (emailMode !== 'gmail' && (!emailDeliveryUrl || !emailApiKey)) {
+      console.warn(JSON.stringify({ event: 'email_unconfigured', warning: 'Production email delivery URL and API key are not configured.' }));
+    }
+  }
   if (env.REDIS_URL && !env.REDIS_URL.startsWith('rediss://') && nodeEnv === 'production') {
     throw new Error('REDIS_URL must use TLS (rediss://) in production.');
   }
@@ -78,7 +88,15 @@ function loadConfig(env = process.env) {
     if (env.S3_ENDPOINT && new URL(env.S3_ENDPOINT).protocol !== 'https:') throw new Error('S3_ENDPOINT must use HTTPS in production.');
   }
   if (!['mongodb', 'elastic'].includes(searchProvider)) throw new Error('SEARCH_PROVIDER must be mongodb or elastic.');
-  if (searchProvider === 'elastic' && (!env.ELASTICSEARCH_URL || !env.ELASTICSEARCH_API_KEY || !env.ELASTICSEARCH_INDEX)) throw new Error('ELASTICSEARCH_URL, ELASTICSEARCH_API_KEY, and ELASTICSEARCH_INDEX are required for Elastic search.');
+  if (searchProvider === 'elastic') {
+    const missingElastic = [];
+    if (!env.ELASTICSEARCH_URL) missingElastic.push('ELASTICSEARCH_URL');
+    if (!env.ELASTICSEARCH_API_KEY) missingElastic.push('ELASTICSEARCH_API_KEY');
+    if (!env.ELASTICSEARCH_INDEX) missingElastic.push('ELASTICSEARCH_INDEX');
+    if (missingElastic.length > 0) {
+      throw new Error(`Elastic search is enabled but missing: ${missingElastic.join(', ')}.`);
+    }
+  }
   if (nodeEnv === 'production' && searchProvider !== 'elastic') throw new Error('Production deployments must use the configured Elastic search adapter.');
 
   return {
