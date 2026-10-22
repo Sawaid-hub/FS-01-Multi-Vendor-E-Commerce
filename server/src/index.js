@@ -52,6 +52,6 @@ async function start() {
 }
 
 start().catch((error) => {
-  console.error(JSON.stringify({ event: 'api_start_failed', errorType: error.name || 'Error', code: error.code || 'startup_failed' }));
+  console.error(JSON.stringify({ event: 'api_start_failed', errorType: error.name || 'Error', code: error.code || 'startup_failed', message: error.message, stack: error.stack }));
   process.exitCode = 1;
 });

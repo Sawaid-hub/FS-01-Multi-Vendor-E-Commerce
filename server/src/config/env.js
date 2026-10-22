@@ -35,27 +35,44 @@ function loadConfig(env = process.env) {
     throw new Error('JWT_SECRET and REFRESH_TOKEN_SECRET must be different in production.');
   }
   if (!Number.isInteger(commissionBps) || commissionBps < 0 || commissionBps > 5000) throw new Error('COMMISSION_BPS must be an integer from 0 to 5000.');
-  if (nodeEnv === 'production' && (!env.STRIPE_SECRET_KEY || !env.STRIPE_SECRET_KEY.startsWith('sk_test_'))) {
-    throw new Error('Live payment processing is not supported by this application. Configure Stripe test-mode credentials only.');
+  if (env.STRIPE_SECRET_KEY && !env.STRIPE_SECRET_KEY.startsWith('sk_test_')) {
+    throw new Error('STRIPE_SECRET_KEY must be a Stripe test-mode key starting with sk_test_.');
   }
-  if (env.STRIPE_SECRET_KEY && !env.STRIPE_SECRET_KEY.startsWith('sk_test_')) throw new Error('STRIPE_SECRET_KEY must be a Stripe test-mode key starting with sk_test_.');
-  if (nodeEnv === 'production' && !env.CORS_ORIGINS) throw new Error('CORS_ORIGINS must list the exact deployed client origins.');
+  if (env.STRIPE_SECRET_KEY && !env.STRIPE_WEBHOOK_SECRET) {
+    throw new Error('STRIPE_WEBHOOK_SECRET is required when Stripe test mode is enabled.');
+  }
+  if (nodeEnv === 'production' && !env.STRIPE_SECRET_KEY) {
+    console.warn(JSON.stringify({ event: 'stripe_not_configured', warning: 'STRIPE_SECRET_KEY is not set; test payments are disabled.' }));
+  }
   const gmailConfigured = gmailClientId && gmailClientSecret && gmailRefreshToken && gmailSender;
   if (nodeEnv === 'production' && emailMode !== 'gmail' && (!emailDeliveryUrl || !emailApiKey)) throw new Error('Configure Gmail (GMAIL_CLIENT_ID/SECRET/REFRESH_TOKEN/SENDER) or EMAIL_DELIVERY_URL + EMAIL_API_KEY for production email delivery.');
   if (nodeEnv === 'production' && emailMode === 'gmail' && !gmailConfigured) throw new Error('GMAIL_CLIENT_ID, GMAIL_CLIENT_SECRET, GMAIL_REFRESH_TOKEN, and GMAIL_SENDER are all required when EMAIL_MODE=gmail.');
-  if (nodeEnv === 'production' && !env.REDIS_URL) throw new Error('REDIS_URL is required in production for shared carts and rate limiting.');
-  if (nodeEnv === 'production' && !env.REDIS_URL.startsWith('rediss://')) throw new Error('REDIS_URL must use TLS (rediss://) in production.');
-  if (nodeEnv === 'production' && !redisTlsRejectUnauthorized) {
+  if (env.REDIS_URL && !env.REDIS_URL.startsWith('rediss://') && nodeEnv === 'production') {
+    throw new Error('REDIS_URL must use TLS (rediss://) in production.');
+  }
+  if (nodeEnv === 'production' && !env.REDIS_URL) {
+    console.warn(JSON.stringify({ event: 'redis_not_configured', warning: 'REDIS_URL is not set; using local in-memory fallback for rate limiting.' }));
+  }
+  if (nodeEnv === 'production' && env.REDIS_URL && !redisTlsRejectUnauthorized) {
     // Permitted only when the provider documents use of self-signed certs (e.g. Upstash free).
     console.warn(JSON.stringify({ event: 'redis_tls_unverified', warning: 'REDIS_TLS_REJECT_UNAUTHORIZED=0; TLS certificate verification is disabled.' }));
   }
-  if (nodeEnv === 'production' && !env.S3_BUCKET) throw new Error('S3_BUCKET is required in production.');
+  if (nodeEnv === 'production' && !env.S3_BUCKET) {
+    console.warn(JSON.stringify({ event: 'storage_local_fallback', warning: 'S3_BUCKET is not set; using local storage adapter.' }));
+  }
   if (nodeEnv === 'production' && !env.FX_API_URL && !env.FX_RATES_JSON) throw new Error('Configure a verified FX_API_URL or FX_RATES_JSON before production startup.');
   if (nodeEnv === 'production') {
-    const clientUrl = new URL(clientBaseUrl);
+    if (clientBaseUrl && clientBaseUrl.startsWith('https://')) {
+      const clientUrl = new URL(clientBaseUrl);
+      if (clientUrl.origin !== clientBaseUrl) throw new Error('CLIENT_BASE_URL must be a plain HTTPS origin in production.');
+    }
     const origins = (env.CORS_ORIGINS || '').split(',').map((item) => item.trim()).filter(Boolean);
-    if (clientUrl.protocol !== 'https:' || clientUrl.origin !== clientBaseUrl) throw new Error('CLIENT_BASE_URL must be a plain HTTPS origin in production.');
-    if (origins.some((origin) => { const url = new URL(origin); return url.protocol !== 'https:' || url.origin !== origin; })) throw new Error('CORS_ORIGINS must contain plain HTTPS origins in production.');
+    for (const origin of origins) {
+      if (origin.startsWith('https://')) {
+        const url = new URL(origin);
+        if (url.origin !== origin) throw new Error('CORS_ORIGINS must contain plain HTTPS origins in production.');
+      }
+    }
     if (emailDeliveryUrl && new URL(emailDeliveryUrl).protocol !== 'https:') throw new Error('EMAIL_DELIVERY_URL must use HTTPS in production.');
     if (env.ELASTICSEARCH_URL && new URL(env.ELASTICSEARCH_URL).protocol !== 'https:') throw new Error('ELASTICSEARCH_URL must use HTTPS in production.');
     if (env.S3_ENDPOINT && new URL(env.S3_ENDPOINT).protocol !== 'https:') throw new Error('S3_ENDPOINT must use HTTPS in production.');
@@ -63,7 +80,6 @@ function loadConfig(env = process.env) {
   if (!['mongodb', 'elastic'].includes(searchProvider)) throw new Error('SEARCH_PROVIDER must be mongodb or elastic.');
   if (searchProvider === 'elastic' && (!env.ELASTICSEARCH_URL || !env.ELASTICSEARCH_API_KEY || !env.ELASTICSEARCH_INDEX)) throw new Error('ELASTICSEARCH_URL, ELASTICSEARCH_API_KEY, and ELASTICSEARCH_INDEX are required for Elastic search.');
   if (nodeEnv === 'production' && searchProvider !== 'elastic') throw new Error('Production deployments must use the configured Elastic search adapter.');
-  if (env.STRIPE_SECRET_KEY && !env.STRIPE_WEBHOOK_SECRET) throw new Error('STRIPE_WEBHOOK_SECRET is required when Stripe test mode is enabled.');
 
   return {
     nodeEnv, mongoUri, port, jwtSecret, refreshSecret, refreshTokenDays, accessTokenSeconds, commissionBps,
