@@ -18,8 +18,8 @@ const categoryStockPhoto = { Home: stockPhotos.mug, Accessories: stockPhotos.tot
 
 const navByRole = {
   customer: [{ id: 'shop', label: 'Shop' }, { id: 'orders', label: 'My orders' }, { id: 'saved', label: 'Saved finds' }],
-  vendor: [{ id: 'vendor', label: 'Overview' }, { id: 'products', label: 'My products' }, { id: 'vendor-orders', label: 'Orders' }],
-  admin: [{ id: 'admin', label: 'Overview' }, { id: 'admin-orders', label: 'Orders' }, { id: 'admin-products', label: 'Catalog' }, { id: 'admin-vendors', label: 'Vendors' }, { id: 'admin-coupons', label: 'Coupons' }],
+  vendor: [{ id: 'vendor', label: 'Overview' }, { id: 'vendor-analytics', label: 'Analytics' }, { id: 'products', label: 'My products' }, { id: 'vendor-orders', label: 'Orders' }],
+  admin: [{ id: 'admin', label: 'Overview' }, { id: 'admin-analytics', label: 'Analytics' }, { id: 'admin-orders', label: 'Orders' }, { id: 'admin-products', label: 'Catalog' }, { id: 'admin-vendors', label: 'Vendors' }, { id: 'admin-coupons', label: 'Coupons' }],
 };
 const categories = ['Everything', 'Home', 'Accessories', 'Stationery'];
 const orderSteps = ['Placed', 'Packed', 'Shipped', 'Delivered'];
@@ -561,8 +561,8 @@ function App() {
         {role === 'customer' && view === 'contact' && <ContactPage supportEmail={supportEmail} onBack={() => openInfoPage('shop')} />}
         {view === 'checkout' && <CheckoutPage cart={cart} subtotal={subtotal} discount={discount} shipping={shipping} total={total} currency={quote?.currency || cart[0]?.currency || 'USD'} hasQuote={Boolean(quote)} coupon={coupon} couponText={couponText} setCouponText={setCouponText} applyCoupon={applyCoupon} placeOrder={placeOrder} login={login} authenticated={authenticated} shippingCountry={shippingCountry} setShippingCountry={setShippingCountry} openAccount={() => setModal('account')} goBack={() => setView('shop')} />}
         {role === 'vendor' && vendorProfile?.status !== 'active' && <VendorPendingPage profile={vendorProfile} />}
-        {role === 'vendor' && vendorProfile?.status === 'active' && ['vendor', 'products', 'vendor-orders'].includes(view) && <BackendVendorPage view={view} seller={vendorProfile} products={vendorProducts} orders={orders} addProduct={() => { setEditingProduct(null); setModal('product'); }} editProduct={(product) => { setEditingProduct(product); setModal('product'); }} advanceOrder={advanceOrder} connect={startConnectOnboarding} archiveProduct={async (id) => { try { await api.archiveProduct(id); setVendorProducts((current) => current.filter((product) => product.id !== id)); toast('Listing archived'); } catch (error) { toast(error.message); } }} />}
-        {role === 'admin' && ['admin', 'admin-orders', 'admin-products', 'admin-vendors'].includes(view) && <BackendAdminPage view={view} products={adminProducts} orders={orders} overview={adminOverview} vendors={vendorApplications} moderateVendor={moderateVendor} moderateProduct={moderateProduct} confirmDelivery={confirmDelivery} reviewReturn={reviewReturn} retryReturnRefund={retryReturnRefund} />}
+        {role === 'vendor' && vendorProfile?.status === 'active' && ['vendor', 'vendor-analytics', 'products', 'vendor-orders'].includes(view) && <BackendVendorPage view={view} seller={vendorProfile} products={vendorProducts} orders={orders} addProduct={() => { setEditingProduct(null); setModal('product'); }} editProduct={(product) => { setEditingProduct(product); setModal('product'); }} advanceOrder={advanceOrder} connect={startConnectOnboarding} archiveProduct={async (id) => { try { await api.archiveProduct(id); setVendorProducts((current) => current.filter((product) => product.id !== id)); toast('Listing archived'); } catch (error) { toast(error.message); } }} />}
+        {role === 'admin' && ['admin', 'admin-analytics', 'admin-orders', 'admin-products', 'admin-vendors'].includes(view) && <BackendAdminPage view={view} products={adminProducts} orders={orders} overview={adminOverview} vendors={vendorApplications} moderateVendor={moderateVendor} moderateProduct={moderateProduct} confirmDelivery={confirmDelivery} reviewReturn={reviewReturn} retryReturnRefund={retryReturnRefund} />}
         {role === 'admin' && view === 'admin-coupons' && <BackendCouponsPage coupons={coupons} createCoupon={createCoupon} toggleCoupon={toggleCoupon} />}
       </main>
 
@@ -744,14 +744,558 @@ function VendorPendingPage({ profile }) {
   return <section className="dashboard-page"><PageHeading eyebrow="SELLER APPLICATION" title="Shop review" description="Seller access is controlled by marketplace administrators." /><section className="panel"><StatusBadge status={status} /><h2>{profile?.shopName || 'Application submitted'}</h2><p>{description}</p></section></section>;
 }
 
+function AnalyticsAreaChart({ timeline = [], valueKey = 'salesMinor', isMinor = true, currency = 'USD', color = '#304c3c' }) {
+  const [hoverIndex, setHoverIndex] = useState(null);
+
+  if (!timeline || timeline.length === 0) {
+    return <div style={{ height: 200, display: 'grid', placeItems: 'center', color: '#94a3b8' }}>No sales activity in this period.</div>;
+  }
+
+  const values = timeline.map((d) => (isMinor ? (d[valueKey] || 0) / 100 : d[valueKey] || 0));
+  const maxVal = Math.max(...values, 10);
+  const minVal = 0;
+  const range = maxVal - minVal;
+
+  const width = 640;
+  const height = 200;
+  const padLeft = 55;
+  const padRight = 20;
+  const padTop = 15;
+  const padBottom = 30;
+
+  const chartW = width - padLeft - padRight;
+  const chartH = height - padTop - padBottom;
+
+  const points = timeline.map((d, i) => {
+    const val = isMinor ? (d[valueKey] || 0) / 100 : d[valueKey] || 0;
+    const x = padLeft + (i / Math.max(timeline.length - 1, 1)) * chartW;
+    const y = padTop + chartH - (val / range) * chartH;
+    return { x, y, val, label: d.label, orders: d.ordersCount || 0, date: d.date };
+  });
+
+  const linePath = points.reduce((acc, p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `${acc} L ${p.x} ${p.y}`), '');
+  const areaPath = points.length
+    ? `${linePath} L ${points[points.length - 1].x} ${padTop + chartH} L ${points[0].x} ${padTop + chartH} Z`
+    : '';
+
+  const yTicks = [
+    { label: formatMoney(0, currency), y: padTop + chartH },
+    { label: formatMoney(maxVal / 2, currency), y: padTop + chartH / 2 },
+    { label: formatMoney(maxVal, currency), y: padTop }
+  ];
+
+  const activePoint = hoverIndex !== null ? points[hoverIndex] : null;
+
+  return (
+    <div style={{ position: 'relative', width: '100%', userSelect: 'none' }}>
+      <svg viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: 'auto', overflow: 'visible' }}>
+        <defs>
+          <linearGradient id={`grad-${color.replace('#','')}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+            <stop offset="100%" stopColor={color} stopOpacity="0.0" />
+          </linearGradient>
+        </defs>
+
+        {yTicks.map((t, idx) => (
+          <g key={idx}>
+            <line x1={padLeft} y1={t.y} x2={width - padRight} y2={t.y} stroke="#f1f5f9" strokeWidth="1" strokeDasharray="3,3" />
+            <text x={padLeft - 8} y={t.y + 4} textAnchor="end" fontSize="10" fill="#94a3b8">{t.label}</text>
+          </g>
+        ))}
+
+        <path d={areaPath} fill={`url(#grad-${color.replace('#','')})`} />
+        <path d={linePath} fill="none" stroke={color} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+
+        {points.map((p, i) => (
+          <g key={i}>
+            <circle cx={p.x} cy={p.y} r={hoverIndex === i ? "6" : "3.5"} fill="#fff" stroke={color} strokeWidth={hoverIndex === i ? "3" : "2"} style={{ transition: 'all 0.15s ease' }} />
+            <rect x={p.x - 15} y={padTop} width="30" height={chartH} fill="transparent" style={{ cursor: 'pointer' }} onMouseEnter={() => setHoverIndex(i)} onMouseLeave={() => setHoverIndex(null)} />
+          </g>
+        ))}
+
+        {points.map((p, i) => {
+          if (timeline.length > 8 && i % 2 !== 0 && i !== points.length - 1) return null;
+          return (
+            <text key={i} x={p.x} y={height - 8} textAnchor="middle" fontSize="10" fill="#94a3b8">
+              {p.label}
+            </text>
+          );
+        })}
+      </svg>
+
+      {activePoint && (
+        <div style={{
+          position: 'absolute',
+          left: `${(activePoint.x / width) * 100}%`,
+          top: `${(activePoint.y / height) * 100 - 30}%`,
+          transform: 'translate(-50%, -100%)',
+          background: '#0f172a',
+          color: '#ffffff',
+          padding: '6px 12px',
+          borderRadius: '6px',
+          fontSize: '11px',
+          whiteSpace: 'nowrap',
+          boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+          pointerEvents: 'none',
+          zIndex: 10
+        }}>
+          <div style={{ fontWeight: 600 }}>{formatMoney(activePoint.val, currency)}</div>
+          <div style={{ fontSize: '10px', color: '#94a3b8' }}>{activePoint.label} · {activePoint.orders} order(s)</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function AnalyticsDonutChart({ data = [], centerLabel = 'Total', size = 160 }) {
+  const total = data.reduce((sum, d) => sum + (d.value || 0), 0);
+  let accumulatedAngle = 0;
+
+  const radius = 55;
+  const strokeWidth = 18;
+  const center = size / 2;
+  const circumference = 2 * Math.PI * radius;
+
+  return (
+    <div className="donut-wrap">
+      <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+          {total === 0 ? (
+            <circle cx={center} cy={center} r={radius} fill="transparent" stroke="#f1f5f9" strokeWidth={strokeWidth} />
+          ) : (
+            data.map((item, i) => {
+              const strokeDasharray = `${(item.value / total) * circumference} ${circumference}`;
+              const strokeDashoffset = -accumulatedAngle;
+              accumulatedAngle += (item.value / total) * circumference;
+              return (
+                <circle
+                  key={i}
+                  cx={center}
+                  cy={center}
+                  r={radius}
+                  fill="transparent"
+                  stroke={item.color || '#304c3c'}
+                  strokeWidth={strokeWidth}
+                  strokeDasharray={strokeDasharray}
+                  strokeDashoffset={strokeDashoffset}
+                  transform={`rotate(-90 ${center} ${center})`}
+                />
+              );
+            })
+          )}
+        </svg>
+        <div style={{
+          position: 'absolute',
+          inset: 0,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          pointerEvents: 'none'
+        }}>
+          <strong style={{ fontSize: 20, color: '#0f172a' }}>{total}</strong>
+          <small style={{ fontSize: 11, color: '#64748b' }}>{centerLabel}</small>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        {data.map((item, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
+            <span style={{ width: 10, height: 10, borderRadius: '50%', background: item.color, flexShrink: 0 }} />
+            <span style={{ color: '#475569' }}>{item.label}</span>
+            <strong style={{ color: '#0f172a', marginLeft: 16 }}>
+              {item.value} {total > 0 ? `(${Math.round((item.value / total) * 100)}%)` : ''}
+            </strong>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function VendorAnalyticsView({ seller }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [range, setRange] = useState('14d');
+  const currency = seller.currency || 'USD';
+
+  useEffect(() => {
+    let active = true;
+    api.vendorAnalytics()
+      .then((res) => { if (active) { setData(res.data); setLoading(false); } })
+      .catch(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  if (loading) {
+    return <section className="panel"><p style={{ padding: '28px 0', textAlign: 'center', color: '#64748b' }}>Loading store analytics…</p></section>;
+  }
+
+  const rawTimeline = data?.timeline || [];
+  const timeline = range === '7d' ? rawTimeline.slice(-7) : rawTimeline;
+
+  const totalGross = data?.grossMinor ? data.grossMinor / 100 : 0;
+  const totalPayout = data?.payoutAllocatedMinor ? data.payoutAllocatedMinor / 100 : 0;
+  const aov = data?.avgOrderValueMinor ? data.avgOrderValueMinor / 100 : 0;
+  const unitsSold = data?.unitsSold || 0;
+  const orderCount = data?.orderCount || 0;
+
+  const statusData = [
+    { label: 'Delivered', value: data?.statusBreakdown?.delivered || 0, color: '#10b981' },
+    { label: 'Shipped', value: data?.statusBreakdown?.shipped || 0, color: '#3b82f6' },
+    { label: 'Packed', value: data?.statusBreakdown?.packed || 0, color: '#f59e0b' },
+    { label: 'Placed', value: data?.statusBreakdown?.placed || 0, color: '#8b5cf6' }
+  ];
+
+  const topProducts = data?.topProducts || [];
+  const maxProductRevenue = topProducts.length ? Math.max(...topProducts.map((p) => p.revenueMinor || 0), 1) : 1;
+
+  return (
+    <div className="analytics-dashboard">
+      <div className="analytics-header">
+        <div>
+          <span className="section-kicker">STORE PERFORMANCE</span>
+          <h2 style={{ margin: '4px 0', fontSize: '24px' }}>Revenue & Fulfillment Metrics</h2>
+        </div>
+        <div className="analytics-filter-tabs">
+          <button className={`analytics-tab-btn ${range === '7d' ? 'active' : ''}`} onClick={() => setRange('7d')}>Last 7 days</button>
+          <button className={`analytics-tab-btn ${range === '14d' ? 'active' : ''}`} onClick={() => setRange('14d')}>Last 14 days</button>
+        </div>
+      </div>
+
+      <div className="analytics-kpis">
+        <div className="analytics-card">
+          <div className="analytics-card-header">
+            <span className="analytics-card-title">Gross Revenue</span>
+            <span className="analytics-trend-badge analytics-trend-up">↑ Live</span>
+          </div>
+          <div className="analytics-card-value">{formatMoney(totalGross, currency)}</div>
+          <div className="analytics-card-sub">Total sales before commission</div>
+        </div>
+
+        <div className="analytics-card">
+          <div className="analytics-card-header">
+            <span className="analytics-card-title">Net Payout</span>
+            <span className="analytics-trend-badge analytics-trend-up">★ Protected</span>
+          </div>
+          <div className="analytics-card-value">{formatMoney(totalPayout, currency)}</div>
+          <div className="analytics-card-sub">Allocated shop payout</div>
+        </div>
+
+        <div className="analytics-card">
+          <div className="analytics-card-header">
+            <span className="analytics-card-title">Orders & Volume</span>
+            <span className="analytics-trend-badge analytics-trend-neutral">{orderCount} orders</span>
+          </div>
+          <div className="analytics-card-value">{unitsSold} <small style={{ fontSize: '15px', fontWeight: 500 }}>units</small></div>
+          <div className="analytics-card-sub">From {orderCount} processed orders</div>
+        </div>
+
+        <div className="analytics-card">
+          <div className="analytics-card-header">
+            <span className="analytics-card-title">Avg Order Value</span>
+            <span className="analytics-trend-badge analytics-trend-neutral">AOV</span>
+          </div>
+          <div className="analytics-card-value">{formatMoney(aov, currency)}</div>
+          <div className="analytics-card-sub">Per checkout allocation</div>
+        </div>
+      </div>
+
+      <div className="analytics-chart-panel">
+        <div className="chart-header">
+          <div>
+            <h3>Daily Revenue Trend</h3>
+            <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748b' }}>Daily store sales over the selected timeframe</p>
+          </div>
+          <div className="chart-legend">
+            <span><span className="legend-dot" style={{ background: '#304c3c' }} />Daily Sales ({currency})</span>
+          </div>
+        </div>
+        <AnalyticsAreaChart timeline={timeline} valueKey="salesMinor" currency={currency} color="#304c3c" />
+      </div>
+
+      <div className="analytics-two-col">
+        <div className="analytics-chart-panel">
+          <div className="chart-header">
+            <div>
+              <h3>Order Fulfillment Breakdown</h3>
+              <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748b' }}>Status of all customer order allocations</p>
+            </div>
+          </div>
+          <AnalyticsDonutChart data={statusData} centerLabel="Allocations" />
+        </div>
+
+        <div className="analytics-chart-panel">
+          <div className="chart-header">
+            <div>
+              <h3>Top Selling Products</h3>
+              <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748b' }}>Highest grossing items in your shop</p>
+            </div>
+          </div>
+          {topProducts.length === 0 ? (
+            <p style={{ color: '#94a3b8', fontSize: '13px', padding: '24px 0', textAlign: 'center' }}>No sales recorded for products yet.</p>
+          ) : (
+            <div className="leaderboard-list">
+              {topProducts.map((p, idx) => {
+                const pct = Math.round(((p.revenueMinor || 0) / maxProductRevenue) * 100);
+                return (
+                  <div key={p.id} className="leaderboard-item">
+                    <span style={{ fontWeight: 700, color: '#94a3b8', width: 22 }}>#{idx + 1}</span>
+                    <div className="leaderboard-info">
+                      <div className="leaderboard-info-header">
+                        <strong style={{ color: '#0f172a' }}>{p.name}</strong>
+                        <span style={{ fontWeight: 600, color: '#304c3c' }}>{formatMoney((p.revenueMinor || 0) / 100, currency)} ({p.unitsSold} sold)</span>
+                      </div>
+                      <div className="leaderboard-bar-bg">
+                        <div className="leaderboard-bar-fill" style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="analytics-chart-panel" style={{ background: '#fbfcf9', borderColor: '#e3eae1' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
+          <div>
+            <h3 style={{ fontSize: '16px', margin: 0, color: '#2c4333' }}>Inventory & Catalog Health</h3>
+            <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#687768' }}>
+              {data?.productCount || 0} published listings · {data?.lowStockCount || 0} low-stock alert(s) · {data?.outOfStockCount || 0} out-of-stock
+            </p>
+          </div>
+          {data?.lowStockCount > 0 && (
+            <span style={{ background: '#fef3c7', color: '#b45309', padding: '6px 12px', borderRadius: '6px', fontSize: '12px', fontWeight: 600 }}>
+              Action needed: {data.lowStockCount} product(s) have less than 10 units left
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AdminAnalyticsView() {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [range, setRange] = useState('14d');
+
+  useEffect(() => {
+    let active = true;
+    api.adminAnalytics()
+      .then((res) => { if (active) { setData(res.data); setLoading(false); } })
+      .catch(() => { if (active) setLoading(false); });
+    return () => { active = false; };
+  }, []);
+
+  if (loading) {
+    return <section className="panel"><p style={{ padding: '28px 0', textAlign: 'center', color: '#64748b' }}>Loading platform analytics…</p></section>;
+  }
+
+  const rawTimeline = data?.timeline || [];
+  const timeline = range === '7d' ? rawTimeline.slice(-7) : rawTimeline;
+
+  const totalGMV = rawTimeline.reduce((sum, d) => sum + (d.gmvMinor || 0) / 100, 0);
+  const totalCommission = rawTimeline.reduce((sum, d) => sum + (d.commissionMinor || 0) / 100, 0);
+  const totalOrders = data?.summary?.totalOrders || 0;
+  const activeVendors = data?.summary?.activeVendors || 0;
+  const pendingVendors = data?.summary?.pendingVendors || 0;
+
+  const statusData = [
+    { label: 'Delivered', value: data?.statusBreakdown?.delivered || 0, color: '#10b981' },
+    { label: 'Shipped', value: data?.statusBreakdown?.shipped || 0, color: '#3b82f6' },
+    { label: 'Packed', value: data?.statusBreakdown?.packed || 0, color: '#f59e0b' },
+    { label: 'Placed', value: data?.statusBreakdown?.placed || 0, color: '#8b5cf6' },
+    { label: 'Cancelled', value: data?.statusBreakdown?.cancelled || 0, color: '#ef4444' }
+  ];
+
+  const topVendors = data?.topVendors || [];
+  const maxVendorRevenue = topVendors.length ? Math.max(...topVendors.map((v) => v.revenueMinor || 0), 1) : 1;
+
+  const categories = data?.categoryBreakdown || [];
+  const maxCatRevenue = categories.length ? Math.max(...categories.map((c) => c.revenueMinor || 0), 1) : 1;
+
+  return (
+    <div className="analytics-dashboard">
+      <div className="analytics-header">
+        <div>
+          <span className="section-kicker">PLATFORM INTELLIGENCE</span>
+          <h2 style={{ margin: '4px 0', fontSize: '24px' }}>Marketplace Performance & Sales</h2>
+        </div>
+        <div className="analytics-filter-tabs">
+          <button className={`analytics-tab-btn ${range === '7d' ? 'active' : ''}`} onClick={() => setRange('7d')}>Last 7 days</button>
+          <button className={`analytics-tab-btn ${range === '14d' ? 'active' : ''}`} onClick={() => setRange('14d')}>Last 14 days</button>
+        </div>
+      </div>
+
+      <div className="analytics-kpis">
+        <div className="analytics-card">
+          <div className="analytics-card-header">
+            <span className="analytics-card-title">Platform GMV</span>
+            <span className="analytics-trend-badge analytics-trend-up">↑ Volume</span>
+          </div>
+          <div className="analytics-card-value">{formatMoney(totalGMV, 'USD')}</div>
+          <div className="analytics-card-sub">Gross merchandise value</div>
+        </div>
+
+        <div className="analytics-card">
+          <div className="analytics-card-header">
+            <span className="analytics-card-title">Platform Commission</span>
+            <span className="analytics-trend-badge analytics-trend-up">Revenue</span>
+          </div>
+          <div className="analytics-card-value">{formatMoney(totalCommission, 'USD')}</div>
+          <div className="analytics-card-sub">Marketplace platform earnings</div>
+        </div>
+
+        <div className="analytics-card">
+          <div className="analytics-card-header">
+            <span className="analytics-card-title">Total Orders</span>
+            <span className="analytics-trend-badge analytics-trend-neutral">{totalOrders} orders</span>
+          </div>
+          <div className="analytics-card-value">{totalOrders} <small style={{ fontSize: '15px', fontWeight: 500 }}>orders</small></div>
+          <div className="analytics-card-sub">Customer checkouts processed</div>
+        </div>
+
+        <div className="analytics-card">
+          <div className="analytics-card-header">
+            <span className="analytics-card-title">Seller Ecosystem</span>
+            <span className="analytics-trend-badge analytics-trend-neutral">{pendingVendors} pending</span>
+          </div>
+          <div className="analytics-card-value">{activeVendors} <small style={{ fontSize: '15px', fontWeight: 500 }}>active</small></div>
+          <div className="analytics-card-sub">{data?.summary?.publishedProducts || 0} published listings</div>
+        </div>
+      </div>
+
+      <div className="analytics-chart-panel">
+        <div className="chart-header">
+          <div>
+            <h3>Gross Merchandise Value & Trajectory</h3>
+            <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748b' }}>Daily marketplace sales and volume across all stores</p>
+          </div>
+          <div className="chart-legend">
+            <span><span className="legend-dot" style={{ background: '#3b82f6' }} />GMV (USD)</span>
+          </div>
+        </div>
+        <AnalyticsAreaChart timeline={timeline} valueKey="gmvMinor" currency="USD" color="#3b82f6" />
+      </div>
+
+      <div className="analytics-two-col">
+        <div className="analytics-chart-panel">
+          <div className="chart-header">
+            <div>
+              <h3>Category Sales Distribution</h3>
+              <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748b' }}>Marketplace revenue share by category</p>
+            </div>
+          </div>
+          {categories.length === 0 ? (
+            <p style={{ color: '#94a3b8', fontSize: '13px', padding: '24px 0', textAlign: 'center' }}>No category sales data recorded yet.</p>
+          ) : (
+            <div className="leaderboard-list">
+              {categories.map((c) => {
+                const pct = Math.round(((c.revenueMinor || 0) / maxCatRevenue) * 100);
+                return (
+                  <div key={c.category} className="leaderboard-item">
+                    <div className="leaderboard-info">
+                      <div className="leaderboard-info-header">
+                        <strong style={{ color: '#0f172a' }}>{c.category}</strong>
+                        <span style={{ fontWeight: 600, color: '#3b82f6' }}>{formatMoney((c.revenueMinor || 0) / 100, 'USD')} ({c.unitsSold} units)</span>
+                      </div>
+                      <div className="leaderboard-bar-bg">
+                        <div className="leaderboard-bar-fill" style={{ width: `${pct}%`, background: '#3b82f6' }} />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="analytics-chart-panel">
+          <div className="chart-header">
+            <div>
+              <h3>Top Sellers Leaderboard</h3>
+              <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748b' }}>Leading merchant shops by total volume</p>
+            </div>
+          </div>
+          {topVendors.length === 0 ? (
+            <p style={{ color: '#94a3b8', fontSize: '13px', padding: '24px 0', textAlign: 'center' }}>No seller sales recorded yet.</p>
+          ) : (
+            <div className="leaderboard-list">
+              {topVendors.map((v, idx) => {
+                const pct = Math.round(((v.revenueMinor || 0) / maxVendorRevenue) * 100);
+                return (
+                  <div key={v.id || v.shopName} className="leaderboard-item">
+                    <span style={{ fontWeight: 700, color: '#94a3b8', width: 22 }}>#{idx + 1}</span>
+                    <div className="leaderboard-info">
+                      <div className="leaderboard-info-header">
+                        <strong style={{ color: '#0f172a' }}>{v.shopName} <small style={{ color: '#94a3b8', fontWeight: 400 }}>({v.country})</small></strong>
+                        <span style={{ fontWeight: 600, color: '#059669' }}>{formatMoney((v.revenueMinor || 0) / 100, 'USD')} ({v.orderCount} orders)</span>
+                      </div>
+                      <div className="leaderboard-bar-bg">
+                        <div className="leaderboard-bar-fill" style={{ width: `${pct}%`, background: '#059669' }} />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="analytics-two-col">
+        <div className="analytics-chart-panel">
+          <div className="chart-header">
+            <div>
+              <h3>Order Fulfillment Breakdown</h3>
+              <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748b' }}>Platform order fulfillment health</p>
+            </div>
+          </div>
+          <AnalyticsDonutChart data={statusData} centerLabel="Orders" />
+        </div>
+
+        <div className="analytics-chart-panel">
+          <div className="chart-header">
+            <div>
+              <h3>Multi-Currency Sales Ledger</h3>
+              <p style={{ margin: '4px 0 0', fontSize: '12px', color: '#64748b' }}>Volume and fee capture by customer currency</p>
+            </div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {Object.entries(data?.summary?.currencies || {}).map(([curr, info]) => (
+              <div key={curr} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 12px', background: '#f8fafc', borderRadius: 6, fontSize: '13px' }}>
+                <div>
+                  <strong style={{ color: '#0f172a' }}>{curr}</strong>
+                  <span style={{ color: '#64748b', marginLeft: 8 }}>{info.count || 0} order(s)</span>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontWeight: 600, color: '#0f172a' }}>{formatMoney((info.grossMinor || 0) / 100, curr)}</div>
+                  <small style={{ color: '#64748b' }}>Fee: {formatMoney((info.commissionMinor || 0) / 100, curr)}</small>
+                </div>
+              </div>
+            ))}
+            {Object.keys(data?.summary?.currencies || {}).length === 0 && (
+              <p style={{ color: '#94a3b8', fontSize: '13px', textAlign: 'center', padding: '12px 0' }}>No multi-currency transactions recorded yet.</p>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function BackendVendorPage({ view, seller, products, orders, addProduct, editProduct, advanceOrder, archiveProduct, connect }) {
   const revenueMinor = orders.reduce((sum, order) => sum + (order.payoutAmountMinor || 0), 0);
   const currency = seller.currency || 'USD';
   const currentProducts = products.filter((product) => !product.archived);
-  return <section className="dashboard-page"><PageHeading eyebrow={`SELLER STUDIO · ${seller.shopName.toUpperCase()}`} title={view === 'vendor-orders' ? 'Your orders' : view === 'products' ? 'Product catalog' : 'Shop overview'} description={seller.description || 'Manage your shop, products, and fulfillment.'} action={view === 'products' ? <button className="button button-primary" onClick={addProduct}>＋ Add product</button> : null} />
+  return <section className="dashboard-page"><PageHeading eyebrow={`SELLER STUDIO · ${seller.shopName.toUpperCase()}`} title={view === 'vendor-orders' ? 'Your orders' : view === 'products' ? 'Product catalog' : view === 'vendor-analytics' ? 'Store analytics' : 'Shop overview'} description={seller.description || 'Manage your shop, products, and fulfillment.'} action={view === 'products' ? <button className="button button-primary" onClick={addProduct}>＋ Add product</button> : null} />
     {view === 'vendor' && <><div className="stats-grid"><Stat label="Payout allocation" value={formatMoney(revenueMinor / 100, currency)} change="Paid orders in your shop currency" icon="$" /><Stat label="Published products" value={currentProducts.filter((product) => product.status === 'published').length} change="Approved marketplace listings" icon="◒" /><Stat label="Orders to fulfill" value={orders.filter((order) => order.status !== 'Delivered').length} change="Only your shop allocations" icon="▤" /><Stat label="Payout terms" value="30 days" change="After confirmed delivery" icon="↗" /></div>
       <section className="panel"><div className="panel-heading"><div><h2>Stripe Connect test onboarding</h2><p>{seller.stripeDetailsSubmitted && seller.stripeTransfersEnabled && seller.stripePayoutsEnabled ? 'Stripe has confirmed the connected account capabilities for test transfers.' : 'Complete onboarding and wait for Stripe capability confirmation before test transfers can run.'}</p></div><button className="button button-primary" onClick={connect}>{seller.stripeTransfersEnabled ? 'Review test onboarding' : 'Open test onboarding'} <span>→</span></button></div><small>Details submitted: {seller.stripeDetailsSubmitted ? 'yes' : 'no'} · Transfers: {seller.stripeTransfersEnabled ? 'enabled' : 'pending'} · Payouts: {seller.stripePayoutsEnabled ? 'enabled' : 'pending'} · No live transfers are enabled in this pilot.</small></section>
       <section className="panel"><div className="panel-heading"><div><h2>Recent orders</h2><p>Only allocations for {seller.shopName}.</p></div></div>{orders.slice(0, 5).map((order) => <div className="vendor-row" key={order.id}><span className="order-id">{order.orderNumber}</span><span>{order.items.length} item(s)</span><StatusBadge status={order.status} /><b>{formatMoney(order.payoutAmountMinor / 100, order.payoutCurrency || currency)}</b></div>)}</section></>}
+    {view === 'vendor-analytics' && <VendorAnalyticsView seller={seller} />}
     {view === 'products' && <><div className="table-toolbar"><span>{currentProducts.length} listings</span><span>New and edited listings need admin review before publication.</span></div><div className="data-table"><div className="table-head product-table"><span>Product</span><span>Category</span><span>Base price</span><span>Stock</span><span>Status</span><span /></div>{currentProducts.map((product) => <div className="table-row product-table" key={product.id}><div className="table-product"><span className={`table-thumb image-${product.color}`}><ProductVisual product={product} /></span><span><b>{product.name}</b><small>{product.productType}</small></span></div><span>{product.category}</span><b>{formatMoney(product.price, product.baseCurrency || currency)}</b><span>{product.stock} units</span><StatusBadge status={product.status || 'draft'} /><div className="table-actions"><button onClick={() => editProduct(product)}>Edit</button><button className="subtle-danger" onClick={() => archiveProduct(product.id)}>Archive</button></div></div>)}</div></>}
     {view === 'vendor-orders' && <div className="order-list">{orders.map((order) => <OrderCard key={order.id} order={order} vendor advanceOrder={advanceOrder} />)}{orders.length === 0 && <EmptyState title="No orders to fulfill" description="Paid orders assigned to your shop appear here." />}</div>}
   </section>;
@@ -760,9 +1304,10 @@ function BackendVendorPage({ view, seller, products, orders, addProduct, editPro
 function BackendAdminPage({ view, products, orders, overview, vendors, moderateVendor, moderateProduct, confirmDelivery, reviewReturn, retryReturnRefund }) {
   const sales = Object.entries(overview?.paidSalesByCurrency || {}).map(([currency, value]) => `${formatMoney(value.grossMinor / 100, currency)} gross`).join(' · ') || 'No paid orders';
   const commission = Object.entries(overview?.paidSalesByCurrency || {}).map(([currency, value]) => formatMoney(value.commissionMinor / 100, currency)).join(' · ') || '—';
-  return <section className="dashboard-page"><PageHeading eyebrow="MARKETPLACE CONTROL" title={view === 'admin-orders' ? 'All orders' : view === 'admin-products' ? 'Catalog oversight' : view === 'admin-vendors' ? 'Seller applications' : 'Platform overview'} description="Marketplace records and moderation actions from the API." />
+  return <section className="dashboard-page"><PageHeading eyebrow="MARKETPLACE CONTROL" title={view === 'admin-orders' ? 'All orders' : view === 'admin-products' ? 'Catalog oversight' : view === 'admin-vendors' ? 'Seller applications' : view === 'admin-analytics' ? 'Platform analytics' : 'Platform overview'} description="Marketplace records and moderation actions from the API." />
     {view === 'admin' && <><div className="stats-grid"><Stat label="Paid sales" value={sales} change="Stripe test-mode orders only" icon="$" /><Stat label="Commission" value={commission} change="Recorded on paid orders" icon="↗" /><Stat label="Published listings" value={overview?.activeProducts ?? products.filter((product) => product.status === 'published').length} change="Server catalog" icon="◒" /><Stat label="Pending sellers" value={overview?.pendingApplications ?? vendors.filter((vendor) => vendor.status === 'pending').length} change="Awaiting admin decision" icon="♙" /></div><section className="panel"><div className="panel-heading"><div><h2>Recent orders</h2><p>Payments are confirmed by verified Stripe test webhooks.</p></div><span className="pulse-dot">TEST MODE</span></div><OrdersTable orders={orders.slice(0, 5)} admin /></section><section className="panel"><div className="panel-heading"><div><h2>Applications to review</h2><p>Approve only after reviewing seller information.</p></div></div><AdminVendorList vendors={vendors.filter((vendor) => vendor.status === 'pending')} moderateVendor={moderateVendor} /></section></>}
-      {view === 'admin-orders' && <><section className="panel"><div className="panel-heading"><div><h2>Order ledger</h2><p>Marketplace order and payment states.</p></div></div><OrdersTable orders={orders} admin /></section><section className="panel"><div className="panel-heading"><div><h2>Delivery confirmation</h2><p>Confirm seller-reported delivery after checking tracking. The 30-day payout hold starts after confirmation.</p></div></div><AdminDeliveryReview orders={orders} confirmDelivery={confirmDelivery} /></section><section className="panel"><div className="panel-heading"><div><h2>Return review</h2><p>Approve a return to request a Stripe test refund. Signed events finish refunds and transfer reversals.</p></div></div><AdminReturnReview orders={orders} reviewReturn={reviewReturn} retryReturnRefund={retryReturnRefund} /></section></>}
+    {view === 'admin-analytics' && <AdminAnalyticsView />}
+    {view === 'admin-orders' && <><section className="panel"><div className="panel-heading"><div><h2>Order ledger</h2><p>Marketplace order and payment states.</p></div></div><OrdersTable orders={orders} admin /></section><section className="panel"><div className="panel-heading"><div><h2>Delivery confirmation</h2><p>Confirm seller-reported delivery after checking tracking. The 30-day payout hold starts after confirmation.</p></div></div><AdminDeliveryReview orders={orders} confirmDelivery={confirmDelivery} /></section><section className="panel"><div className="panel-heading"><div><h2>Return review</h2><p>Approve a return to request a Stripe test refund. Signed events finish refunds and transfer reversals.</p></div></div><AdminReturnReview orders={orders} reviewReturn={reviewReturn} retryReturnRefund={retryReturnRefund} /></section></>}
     {view === 'admin-products' && <div className="data-table"><div className="table-head admin-product-table"><span>Listing</span><span>Seller</span><span>Category</span><span>Price</span><span>Inventory</span><span>Status</span><span /></div>{products.map((product) => <div className="table-row admin-product-table" key={product.id}><div className="table-product"><span className={`table-thumb image-${product.color}`}><ProductVisual product={product} /></span><b>{product.name}</b></div><span>{product.vendor}</span><span>{product.category}</span><b>{formatMoney(product.price, product.baseCurrency || product.currency)}</b><span>{product.stock}</span><StatusBadge status={product.status || 'draft'} /><div className="table-actions">{product.status !== 'published' && <button onClick={() => moderateProduct(product, 'published')}>Publish</button>}{product.status === 'published' && <button className="subtle-danger" onClick={() => moderateProduct(product, 'unpublished')}>Unpublish</button>}</div></div>)}</div>}
     {view === 'admin-vendors' && <section className="panel"><div className="panel-heading"><div><h2>Seller applications and accounts</h2><p>Every decision is recorded in the audit log.</p></div></div><AdminVendorList vendors={vendors} moderateVendor={moderateVendor} /></section>}
   </section>;

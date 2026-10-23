@@ -28,6 +28,95 @@ function createAdminRouter(config, dependencies = {}) {
     res.json({ data: { orderCount: orders, activeVendors: vendors, activeProducts: products, pendingApplications: pendingVendors, paidSalesByCurrency: currencies, paymentMode: 'test' } });
   });
 
+  router.get('/analytics', async (_req, res) => {
+    const [allOrders, vendors, products] = await Promise.all([
+      Order.find({ paymentStatus: { $in: ['paid', 'partially_refunded'] } }).sort({ createdAt: -1 }).limit(500).lean(),
+      VendorProfile.find().lean(),
+      Product.find().lean()
+    ]);
+
+    const now = new Date();
+    const timeline = [];
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      const dateStr = d.toISOString().slice(0, 10);
+      const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      timeline.push({ date: dateStr, label, gmvMinor: 0, commissionMinor: 0, ordersCount: 0 });
+    }
+    const timelineMap = new Map(timeline.map((t) => [t.date, t]));
+
+    const currencies = {};
+    const statusBreakdown = { placed: 0, packed: 0, shipped: 0, delivered: 0, cancelled: 0 };
+    const categoryMap = new Map();
+    const vendorSalesMap = new Map();
+
+    for (const v of vendors) {
+      vendorSalesMap.set(String(v._id), { id: String(v._id), shopName: v.shopName, country: v.country, status: v.status, orderCount: 0, revenueMinor: 0 });
+    }
+
+    for (const order of allOrders) {
+      const orderDate = new Date(order.createdAt).toISOString().slice(0, 10);
+      const day = timelineMap.get(orderDate);
+      if (day) {
+        day.gmvMinor += order.totalMinor || 0;
+        day.commissionMinor += order.commissionMinor || 0;
+        day.ordersCount += 1;
+      }
+
+      currencies[order.currency] ||= { grossMinor: 0, commissionMinor: 0, count: 0 };
+      currencies[order.currency].grossMinor += order.totalMinor || 0;
+      currencies[order.currency].commissionMinor += order.commissionMinor || 0;
+      currencies[order.currency].count += 1;
+
+      if (order.status && statusBreakdown[order.status] !== undefined) {
+        statusBreakdown[order.status] += 1;
+      }
+
+      for (const item of (order.items || [])) {
+        const cat = item.category || 'Home';
+        const catInfo = categoryMap.get(cat) || { category: cat, unitsSold: 0, revenueMinor: 0 };
+        catInfo.unitsSold += item.quantity || 1;
+        catInfo.revenueMinor += (item.unitPriceMinor || 0) * (item.quantity || 1);
+        categoryMap.set(cat, catInfo);
+
+        const vInfo = vendorSalesMap.get(String(item.vendorId));
+        if (vInfo) {
+          vInfo.revenueMinor += (item.unitPriceMinor || 0) * (item.quantity || 1);
+        }
+      }
+
+      for (const alloc of (order.allocations || [])) {
+        const vInfo = vendorSalesMap.get(String(alloc.vendorId));
+        if (vInfo) {
+          vInfo.orderCount += 1;
+        }
+      }
+    }
+
+    const topVendors = Array.from(vendorSalesMap.values())
+      .filter((v) => v.revenueMinor > 0 || v.orderCount > 0)
+      .sort((a, b) => b.revenueMinor - a.revenueMinor)
+      .slice(0, 5);
+
+    const categoryBreakdown = Array.from(categoryMap.values()).sort((a, b) => b.revenueMinor - a.revenueMinor);
+
+    res.json({
+      data: {
+        summary: {
+          totalOrders: allOrders.length,
+          activeVendors: vendors.filter((v) => v.status === 'active').length,
+          pendingVendors: vendors.filter((v) => v.status === 'pending').length,
+          publishedProducts: products.filter((p) => p.status === 'published').length,
+          currencies
+        },
+        timeline,
+        statusBreakdown,
+        categoryBreakdown,
+        topVendors
+      }
+    });
+  });
+
   router.get('/vendor-applications', async (req, res) => {
     const status = ['pending', 'active', 'rejected', 'suspended'].includes(req.query.status) ? req.query.status : undefined;
     const filter = status ? { status } : {};

@@ -21,6 +21,7 @@
     "dotenv": "^16.4.7",
     "express": "^5.1.0",
     "googleapis": "^187.0.0",
+    "mongodb": "^7.7.0",
     "mongoose": "^8.19.1",
     "nodemailer": "^10.1.7",
     "redis": "^6.3.0",

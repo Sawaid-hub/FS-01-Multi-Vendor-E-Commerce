@@ -398,9 +398,84 @@ function createMarketplaceRouter(config, dependencies = {}) {
   });
   router.get('/vendor/analytics/summary', ...vendorAuth, async (req, res) => {
     const profile = await requireVendorProfile(req.user.id, true);
-    const [products, orders] = await Promise.all([Product.find({ vendorId: profile._id }).lean(), Order.find({ 'allocations.vendorId': profile._id, paymentStatus: { $in: ['paid', 'partially_refunded'] } }).lean()]);
-    const allocations = orders.flatMap((order) => order.allocations.filter((allocation) => String(allocation.vendorId) === String(profile._id)));
-    res.json({ data: { productCount: products.filter((p) => p.status === 'published').length, lowStockCount: products.filter((p) => p.stock < 10 && p.status === 'published').length, orderCount: orders.length, payoutAllocatedMinor: allocations.reduce((sum, allocation) => sum + allocation.payoutAmountMinor, 0), currency: profile.currency } });
+    const [products, orders] = await Promise.all([
+      Product.find({ vendorId: profile._id }).lean(),
+      Order.find({ 'allocations.vendorId': profile._id, paymentStatus: { $in: ['paid', 'partially_refunded'] } }).sort({ createdAt: -1 }).lean()
+    ]);
+
+    const now = new Date();
+    const timeline = [];
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+      const dateStr = d.toISOString().slice(0, 10);
+      const label = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+      timeline.push({ date: dateStr, label, salesMinor: 0, ordersCount: 0 });
+    }
+    const timelineMap = new Map(timeline.map((t) => [t.date, t]));
+
+    let totalGrossMinor = 0;
+    let totalCommissionMinor = 0;
+    let totalPayoutMinor = 0;
+    let totalUnitsSold = 0;
+    const statusCounts = { placed: 0, packed: 0, shipped: 0, delivered: 0 };
+    const productSalesMap = new Map();
+
+    for (const order of orders) {
+      const orderDate = new Date(order.createdAt).toISOString().slice(0, 10);
+      const dayData = timelineMap.get(orderDate);
+
+      const vendorAllocations = (order.allocations || []).filter((a) => String(a.vendorId) === String(profile._id));
+      for (const alloc of vendorAllocations) {
+        totalGrossMinor += alloc.grossMinor || 0;
+        totalCommissionMinor += alloc.commissionMinor || 0;
+        totalPayoutMinor += alloc.payoutAmountMinor || 0;
+        if (alloc.status && statusCounts[alloc.status] !== undefined) {
+          statusCounts[alloc.status]++;
+        }
+        if (dayData) {
+          dayData.salesMinor += alloc.payoutAmountMinor || 0;
+          dayData.ordersCount += 1;
+        }
+      }
+
+      for (const item of (order.items || [])) {
+        if (String(item.vendorId) === String(profile._id)) {
+          totalUnitsSold += item.quantity || 1;
+          const pid = String(item.productId);
+          const current = productSalesMap.get(pid) || { name: item.name, unitsSold: 0, revenueMinor: 0 };
+          current.unitsSold += item.quantity || 1;
+          current.revenueMinor += (item.unitPriceMinor || 0) * (item.quantity || 1);
+          productSalesMap.set(pid, current);
+        }
+      }
+    }
+
+    const topProducts = Array.from(productSalesMap.entries())
+      .map(([id, info]) => ({ id, ...info }))
+      .sort((a, b) => b.revenueMinor - a.revenueMinor)
+      .slice(0, 5);
+
+    const activeProducts = products.filter((p) => p.status === 'published');
+    const lowStockCount = activeProducts.filter((p) => p.stock < 10).length;
+    const outOfStockCount = activeProducts.filter((p) => p.stock <= 0).length;
+
+    res.json({
+      data: {
+        currency: profile.currency || 'USD',
+        productCount: activeProducts.length,
+        lowStockCount,
+        outOfStockCount,
+        orderCount: orders.length,
+        unitsSold: totalUnitsSold,
+        grossMinor: totalGrossMinor,
+        commissionMinor: totalCommissionMinor,
+        payoutAllocatedMinor: totalPayoutMinor,
+        avgOrderValueMinor: orders.length ? Math.round(totalGrossMinor / orders.length) : 0,
+        timeline,
+        statusBreakdown: statusCounts,
+        topProducts
+      }
+    });
   });
   router.get('/vendor/payouts', ...vendorAuth, async (req, res) => {
     const profile = await requireVendorProfile(req.user.id, true);
