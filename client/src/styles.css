@@ -168,3 +168,372 @@ html{scroll-behavior:smooth;scroll-padding-top:20px}
 
 .brand-logo{display:block;width:172px;height:auto;flex:0 0 auto}
 @media(max-width:650px){.brand-logo{width:146px}}
+
+/* ==========================================================================
+   GLOBAL TYPOGRAPHY & OVERVIEW BAR UPGRADE
+   Normalizes font sizes across the workspace navigation, dashboards, and storefront
+   ========================================================================== */
+
+/* 1. Workspace Navigation (Overview, My products, Orders tabs) */
+.workspace-nav {
+  background: #111827 !important;
+  color: #fff !important;
+  border-bottom: 1px solid #26313d !important;
+  padding: 0 32px !important;
+  margin: 0 auto !important;
+  max-width: 1260px !important;
+  min-height: 62px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 28px !important;
+}
+
+.workspace-title {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 10px 22px 10px 0 !important;
+  border-right: 1px solid #26313d !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  color: #ffffff !important;
+  white-space: nowrap !important;
+}
+
+.workspace-title small {
+  display: block !important;
+  margin-top: 3px !important;
+  font-size: 12px !important;
+  color: #9ca3af !important;
+  font-weight: 400 !important;
+}
+
+.workspace-mark {
+  width: 36px !important;
+  height: 36px !important;
+  border-radius: 50% !important;
+  display: grid !important;
+  place-items: center !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  color: #111827 !important;
+  background: #c5e86c !important;
+  flex-shrink: 0 !important;
+}
+
+.admin-mark {
+  background: #60a5fa !important;
+  color: #0f172a !important;
+}
+
+.workspace-links {
+  height: 62px !important;
+  display: flex !important;
+  align-items: stretch !important;
+  gap: 24px !important;
+  flex: 1 !important;
+}
+
+.workspace-link {
+  background: none !important;
+  border: 0 !important;
+  border-bottom: 3px solid transparent !important;
+  padding: 0 6px !important;
+  color: #94a3b8 !important;
+  font-size: 15px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  display: flex !important;
+  align-items: center !important;
+  transition: all 0.2s ease !important;
+}
+
+.workspace-link:hover {
+  color: #ffffff !important;
+}
+
+.workspace-link.current,
+.workspace-link.active {
+  color: #c5e86c !important;
+  font-weight: 700 !important;
+  border-bottom-color: #c5e86c !important;
+}
+
+.workspace-exit {
+  border: 1px solid #334155 !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+  border-radius: 6px !important;
+  padding: 8px 16px !important;
+  color: #cbd5e1 !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  cursor: pointer !important;
+  white-space: nowrap !important;
+  transition: all 0.2s ease !important;
+}
+
+.workspace-exit:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #ffffff !important;
+  border-color: #475569 !important;
+}
+
+/* 2. Topline & Header Navigation */
+.topline {
+  font-size: 13px !important;
+  min-height: 38px !important;
+}
+.topline button {
+  font-size: 13px !important;
+}
+.primary-nav {
+  height: 52px !important;
+}
+.nav-link {
+  font-size: 14px !important;
+}
+.nav-link.selected {
+  font-size: 14px !important;
+  font-weight: 700 !important;
+}
+.portal-actions .outline-button {
+  font-size: 13px !important;
+  padding: 7px 14px !important;
+}
+.search-wrap {
+  height: 44px !important;
+}
+.search-wrap input {
+  font-size: 14px !important;
+}
+.search-wrap kbd {
+  font-size: 12px !important;
+}
+.text-action, .cart-trigger {
+  font-size: 14px !important;
+}
+.text-action small {
+  font-size: 12px !important;
+}
+.cart-trigger b {
+  font-size: 12px !important;
+  width: 24px !important;
+  height: 24px !important;
+}
+
+/* 3. Dashboard / Workspace Pages */
+.dashboard-page {
+  padding: 36px 0 60px !important;
+}
+.page-heading h1 {
+  font-size: 32px !important;
+  font-weight: 600 !important;
+}
+.page-heading p {
+  font-size: 14px !important;
+  color: #64748b !important;
+}
+.section-kicker, .hero-kicker {
+  font-size: 12px !important;
+  letter-spacing: 0.12em !important;
+}
+.stat-card {
+  padding: 22px 18px !important;
+}
+.stat-label {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #64748b !important;
+}
+.stat-card strong {
+  font-size: 28px !important;
+  font-weight: 700 !important;
+}
+.stat-card small {
+  font-size: 12px !important;
+}
+.panel-heading h2 {
+  font-size: 20px !important;
+  font-weight: 600 !important;
+}
+.panel-heading p {
+  font-size: 13px !important;
+}
+.panel-link {
+  font-size: 13px !important;
+}
+
+/* 4. Tables & Lists */
+.table-head {
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  padding: 12px 14px !important;
+}
+.table-row {
+  font-size: 14px !important;
+  min-height: 60px !important;
+  padding: 12px 14px !important;
+}
+.table-product b {
+  font-size: 14px !important;
+}
+.table-product small {
+  font-size: 12px !important;
+}
+.table-actions button,
+.row-action {
+  font-size: 13px !important;
+  padding: 6px 12px !important;
+}
+.status-badge {
+  font-size: 12px !important;
+  padding: 5px 10px !important;
+}
+.vendor-row b {
+  font-size: 14px !important;
+}
+.vendor-row small {
+  font-size: 12px !important;
+}
+.order-card-head small {
+  font-size: 12px !important;
+}
+.order-line-item b {
+  font-size: 14px !important;
+}
+.order-line-item small {
+  font-size: 12px !important;
+}
+.order-line-item strong {
+  font-size: 14px !important;
+}
+.order-card-foot b {
+  font-size: 16px !important;
+}
+.order-card-foot small {
+  font-size: 12px !important;
+}
+.order-id {
+  font-size: 14px !important;
+}
+
+/* 5. Storefront Products & Cards */
+.catalog-head h2, .listing-heading h2 {
+  font-size: 30px !important;
+}
+.catalog-head p {
+  font-size: 14px !important;
+}
+.product-name {
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  line-height: 1.35 !important;
+}
+.seller-link {
+  font-size: 13px !important;
+}
+.card-rating {
+  font-size: 13px !important;
+}
+.card-bottom strong {
+  font-size: 16px !important;
+  font-weight: 700 !important;
+}
+.card-bottom button {
+  font-size: 13px !important;
+  height: 32px !important;
+  padding: 0 12px !important;
+}
+.filter-pill {
+  font-size: 13px !important;
+  padding: 6px 14px !important;
+}
+.product-count {
+  font-size: 13px !important;
+}
+.category-card b {
+  font-size: 15px !important;
+}
+.category-card small {
+  font-size: 12px !important;
+}
+.button, .button-primary, .button-light, .outline-button {
+  font-size: 14px !important;
+  min-height: 44px !important;
+}
+
+/* 6. Modals, Forms & Checkout */
+.form-modal-head h2, .drawer-head h2 {
+  font-size: 24px !important;
+}
+.form-modal-head p, .drawer-head p {
+  font-size: 13px !important;
+}
+.form-modal label, .form-grid label, .checkout-card label {
+  font-size: 13px !important;
+  font-weight: 500 !important;
+}
+.form-modal input, .form-modal select, .form-modal textarea,
+.form-grid input, .form-grid select, .form-grid textarea,
+.checkout-card input, .checkout-card select {
+  font-size: 14px !important;
+  min-height: 42px !important;
+}
+.account-tabs button {
+  font-size: 14px !important;
+  height: 42px !important;
+}
+.drawer-item-main b, .summary-item b {
+  font-size: 14px !important;
+}
+.drawer-item-main small, .summary-item small {
+  font-size: 12px !important;
+}
+.drawer-item strong, .summary-item strong {
+  font-size: 14px !important;
+}
+.cart-totals p {
+  font-size: 14px !important;
+}
+.cart-totals .grand-total {
+  font-size: 16px !important;
+}
+.cart-totals .grand-total b {
+  font-size: 18px !important;
+}
+.toast {
+  font-size: 14px !important;
+  padding: 14px 22px !important;
+}
+.coupon-code {
+  font-size: 13px !important;
+}
+.coupon-desc b {
+  font-size: 13px !important;
+}
+.coupon-desc small {
+  font-size: 12px !important;
+}
+
+/* 7. Mobile Adaptations */
+@media(max-width: 650px) {
+  .workspace-nav {
+    min-height: 52px !important;
+    padding: 0 16px !important;
+    gap: 16px !important;
+  }
+  .workspace-title {
+    font-size: 13px !important;
+  }
+  .workspace-link {
+    font-size: 13px !important;
+  }
+  .workspace-exit {
+    font-size: 12px !important;
+    padding: 6px 10px !important;
+  }
+  .nav-link {
+    font-size: 13px !important;
+  }
+}
+
