@@ -2,6 +2,7 @@ services:
   - type: web
     name: market-lane-api
     runtime: docker
+    plan: free
     rootDir: server
     dockerfilePath: ./Dockerfile
     dockerContext: .
